@@ -1,12 +1,14 @@
 from flask import Flask, request, jsonify
 import requests
+import socket
+import threading
 
 class Node:
-    def __init__(self, ip, port, blockchain, registration_server_url):
-        self.ip = ip
-        self.port = port
+    def __init__(self, blockchain, registration_server_url):
         self.blockchain = blockchain
         self.registration_server_url = registration_server_url
+        self.ip = self.get_ip_address()
+        self.port = self.get_available_port()
         self.app = Flask(__name__)
         self.setup_routes()
         self.register_with_server()
@@ -28,13 +30,29 @@ class Node:
         def broadcast_block():
             data = request.get_json()
             block = data.get('block')
-            # Broadcast block to all connected nodes (excluding self)
-            self.broadcast_block(block)
+            # Avoid rebroadcasting the block back to the sender
+            if self.blockchain.validateBlock(block):
+                self.blockchain.chain.append(block)
+                self.broadcast_block(block)  # Continue broadcasting to other nodes
             return jsonify({'message': 'Block broadcasted!'}), 200
 
         @self.app.route('/get_chain', methods=['GET'])
         def get_chain():
             return jsonify({'chain': self.blockchain.chain}), 200
+
+    def get_ip_address(self):
+        """ Automatically get the device's IP address. """
+        hostname = socket.gethostname()
+        ip_address = socket.gethostbyname(hostname)
+        return ip_address
+
+    def get_available_port(self):
+        """ Find an available port on the device. """
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('', 0))  # Bind to a free port provided by the host.
+        port = s.getsockname()[1]
+        s.close()
+        return port
 
     def register_with_server(self):
         payload = {'ip': self.ip, 'port': self.port}
@@ -48,6 +66,7 @@ class Node:
             print(f"Error registering node: {e}")
 
     def start_server(self):
+        print(f"Starting node server at {self.ip}:{self.port}")
         self.app.run(host=self.ip, port=self.port)
 
     def broadcast_block(self, block):
@@ -71,6 +90,7 @@ class Node:
         except requests.exceptions.RequestException as e:
             print(f"Error fetching node list: {e}")
 
-def run_node(ip, port, blockchain, registration_server_url):
-    node = Node(ip, port, blockchain, registration_server_url)
+def run_node(blockchain, registration_server_url):
+    node = Node(blockchain, registration_server_url)
     node.start_server()
+
