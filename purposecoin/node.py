@@ -4,14 +4,28 @@ import socket
 import threading
 
 class Node:
-    def __init__(self, blockchain, registration_server_url):
+    def __init__(self, port, blockchain, registration_server_url):
+        self.ip = self.get_ip_address()  # Automatically get the actual IP address
+        self.port = port
         self.blockchain = blockchain
         self.registration_server_url = registration_server_url
-        self.ip = self.get_ip_address()
-        self.port = self.get_available_port()
         self.app = Flask(__name__)
         self.setup_routes()
         self.register_with_server()
+
+    def get_ip_address(self):
+        """ Automatically get the device's actual IP address. """
+        # Use a socket to find the actual IP address of the machine
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            # Connect to an external host; this doesn't have to be reachable
+            s.connect(("8.8.8.8", 80))
+            ip_address = s.getsockname()[0]
+        except Exception:
+            ip_address = '127.0.0.1'  # Fallback to localhost if unable to get IP
+        finally:
+            s.close()
+        return ip_address
 
     def setup_routes(self):
         @self.app.route('/new_block', methods=['POST'])
@@ -39,20 +53,6 @@ class Node:
         @self.app.route('/get_chain', methods=['GET'])
         def get_chain():
             return jsonify({'chain': self.blockchain.chain}), 200
-
-    def get_ip_address(self):
-        """ Automatically get the device's IP address. """
-        hostname = socket.gethostname()
-        ip_address = socket.gethostbyname(hostname)
-        return ip_address
-
-    def get_available_port(self):
-        """ Find an available port on the device. """
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('', 0))  # Bind to a free port provided by the host.
-        port = s.getsockname()[1]
-        s.close()
-        return port
 
     def register_with_server(self):
         payload = {'ip': self.ip, 'port': self.port}
@@ -90,7 +90,7 @@ class Node:
         except requests.exceptions.RequestException as e:
             print(f"Error fetching node list: {e}")
 
-def run_node(blockchain, registration_server_url):
-    node = Node(blockchain, registration_server_url)
-    node.start_server()
 
+def run_node(port, blockchain, registration_server_url):
+    node = Node(port, blockchain, registration_server_url)
+    node.start_server()
