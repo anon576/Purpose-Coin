@@ -1,5 +1,5 @@
-from Blockchain import Blockchain
-from Node import run_node
+from purposecoin.Blockchain.Blockchain import Blockchain
+from purposecoin.Node.Node import run_node
 import threading
 
 def main():
