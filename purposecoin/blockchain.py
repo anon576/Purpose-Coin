@@ -77,6 +77,7 @@ class Blockchain:
         return True
 
     def registerOrganization(self, org_id, org_name):
+        
         self.organizations[org_id] = {
             'name': org_name,
             'status': 'pending'
@@ -84,11 +85,9 @@ class Blockchain:
     
     def approveOrganization(self, org_id):
         if org_id in self.organizations:
-            self.organizations[org_id]['status'] = 'approved'
-            print(f'Organization {org_id} has been approved.')
-            self.broadcastUpdatedOrganizations()
-        else:
-            print('Organization not found.')
+            org = self.organizations.pop(org_id)
+            org['status'] = 'approved'
+            self.organizations[org_id] = org
 
     def registerUser(self, user_id, user_name):
         self.users[user_id] = {
